@@ -22,7 +22,7 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 
 ## Usage
 
-Instantiate the relevant class and call the `Process` or `ProcessBIMFile` method passing the filename.
+Instantiate the relevant class and call the `Process` method passing the filename.
 
 ```csharp
 var col = new ColProcessor();

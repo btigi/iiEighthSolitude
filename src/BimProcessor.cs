@@ -5,7 +5,9 @@ namespace ii.EighthSolitude
 {
     public class BimProcessor
     {
-        public List<Image<Rgba32>> ProcessBIMFile(string filePath)
+        public List<(int r, int g, int b)> Palette = null!;
+
+        public List<Image<Rgba32>> Process(string filePath)
         {
             var images = new List<Image<Rgba32>>();
 
@@ -147,7 +149,8 @@ namespace ii.EighthSolitude
 
                         var pixelValue = reader.ReadByte();
                         var alpha = pixelValue == 0 ? (byte)0 : (byte)255;
-                        image[x, y] = new Rgba32(pixelValue, pixelValue, pixelValue, alpha);
+                        var color = GetColorFromPalette(pixelValue);
+                        image[x, y] = new Rgba32(color.r, color.g, color.b, alpha);
                     }
                 }
             }
@@ -234,7 +237,8 @@ namespace ii.EighthSolitude
                                 {
                                     var pixelValue = pixelData[pixelIndex];
                                     var alpha = pixelValue == 0 ? (byte)0 : (byte)255;
-                                    image[x, y] = new Rgba32(pixelValue, pixelValue, pixelValue, alpha);
+                                    var color = GetColorFromPalette(pixelValue);
+                                    image[x, y] = new Rgba32(color.r, color.g, color.b, alpha);
 
                                     x++;
                                     pixelIndex++;
@@ -252,6 +256,18 @@ namespace ii.EighthSolitude
             }
 
             return image;
+        }
+
+        private (byte r, byte g, byte b) GetColorFromPalette(byte pixelValue)
+        {
+            if (Palette != null && pixelValue < Palette.Count)
+            {
+                var paletteColor = Palette[pixelValue];
+                return ((byte)paletteColor.r, (byte)paletteColor.g, (byte)paletteColor.b);
+            }
+            
+            // Default to a greyscale palette
+            return (pixelValue, pixelValue, pixelValue);
         }
 
         private static int GetFrameCount(BinaryReader br)
