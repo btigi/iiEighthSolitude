@@ -10,8 +10,8 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 | BIM    | ✔   |   ✗   | Some images seem to contain invalid data
 | BIN    | ✗   |   ✗   |  
 | C24    | ✗   |   ✗   | 
-| COL    | ✔   |   ✗   | 
-| DAT    | ✔   |   ✗   | Binary - palette
+| COL    | ✔   |   ✔   | 
+| DAT    | ✔   |   ✔   | Binary - palette
 | DAT    | ✗   |   ✗   | Plain text
 | GP     | ✗   |   ✗   | Plain text
 | INI    | ✗   |   ✗   | Plain text

@@ -6,7 +6,7 @@ namespace ii.EighthSolitude
         private const short Channels = 1;
         private const short BitsPerSample = 8;
 
-        public byte[] Process(string filename)
+        public byte[] Read(string filename)
         {
             var pcm = File.ReadAllBytes(filename);
             return BuildWav(pcm);
