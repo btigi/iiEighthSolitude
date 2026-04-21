@@ -11,10 +11,11 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 | BIN    | ✗   |   ✗   |  
 | C24    | ✗   |   ✗   | 
 | COL    | ✔   |   ✗   | 
+| DAT    | ✔   |   ✗   | Binary - palette
 | DAT    | ✗   |   ✗   | Plain text
 | GP     | ✗   |   ✗   | Plain text
 | INI    | ✗   |   ✗   | Plain text
-| SMP    | ✗   |   ✗   | 
+| SMP    | ✔   |   ✗   | Sound effects
 | TXT    | ✗   |   ✗   | Plain text
 | WS1    | ✗   |   ✗   | 
 | XFD    | ✗   |   ✗   | 
