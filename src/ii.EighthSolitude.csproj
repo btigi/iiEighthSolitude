@@ -7,7 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />    
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\external\SharpMod\src\SharpMod.Core\SharpMod.Core.csproj" />
   </ItemGroup>
 
 </Project>

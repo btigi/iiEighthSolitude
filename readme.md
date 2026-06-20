@@ -20,7 +20,7 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 | TXT    | ✗   |   ✗   | Plain text
 | WS1    | ✗   |   ✗   | 
 | XFD    | ✗   |   ✗   | 
-| XM     | ✗   |   ✗   | 
+| XM     | ✔   |   ✗   | 
 
 ## Usage
 

@@ -1,0 +1,3 @@
+[submodule "external/SharpMod"]
+	path = external/SharpMod
+	url = https://github.com/Mdwf-droid/SharpMod.git
