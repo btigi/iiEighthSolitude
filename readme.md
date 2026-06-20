@@ -5,7 +5,7 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 
 | Name   | Read | Write | Comment
 |--------|:----:|-------|--------
-| AI     | ✗   |   ✗   | Plain text
+| AI     | ✔   |   ✔   | Plain text
 | AIO    | ✗   |   ✗   | Plain text
 | BIM    | ✔   |   ✗   | Some images seem to contain invalid data
 | BIN    | ✗   |   ✗   |  
