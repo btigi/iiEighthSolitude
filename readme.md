@@ -15,7 +15,8 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 | DAT    | ✗   |   ✗   | Plain text
 | GP     | ✗   |   ✗   | Plain text
 | INI    | ✗   |   ✗   | Plain text
-| SMP    | ✔   |   ✗   | Sound effects
+| SAV    | ✗   |   ✗   | Save game
+| SMP    | ✔   |   ✔   | Sound effects
 | TXT    | ✗   |   ✗   | Plain text
 | WS1    | ✗   |   ✗   | 
 | XFD    | ✗   |   ✗   | 
@@ -27,7 +28,7 @@ Instantiate the relevant class and call the `Process` method passing the filenam
 
 ```csharp
 var col = new ColProcessor();
-var palette = col.Process(@"D:\Games\7thLegion\GFX\PAL1.COL");
+var palette = col.Read(@"D:\Games\7thLegion\GFX\PAL1.COL");
 
 var bim = new BimProcessor();
 foreach (var f in Directory.EnumerateFiles(@"D:\Games\7thLegion\GFX", "*.BIM"))
