@@ -9,7 +9,7 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 | AIO    | ✗   |   ✗   | Plain text
 | BIM    | ✔   |   ✗   | Some images seem to contain invalid data
 | BIN    | ✗   |   ✗   |  
-| C24    | ✗   |   ✗   | 
+| C24    | ✔   |   ✔   | Binary - palette (256 colours, 6-bit, 4 bytes/entry)
 | COL    | ✔   |   ✔   | 
 | DAT    | ✔   |   ✔   | Binary - palette
 | DAT    | ✗   |   ✗   | Plain text
@@ -19,7 +19,7 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 | SMP    | ✔   |   ✔   | Sound effects
 | TXT    | ✗   |   ✗   | Plain text
 | WS1    | ✗   |   ✗   | 
-| XFD    | ✗   |   ✗   | 
+| XFD    | ✔   |   ✔   | 
 | XM     | ✔   |   ✗   | 
 
 ## Usage
@@ -30,10 +30,10 @@ Instantiate the relevant class and call the `Process` method passing the filenam
 var col = new ColProcessor();
 var palette = col.Read(@"D:\Games\7thLegion\GFX\PAL1.COL");
 
-var bim = new BimProcessor();
+var bim = new BimProcessor { Palette = palette };
 foreach (var f in Directory.EnumerateFiles(@"D:\Games\7thLegion\GFX", "*.BIM"))
 {
-    var images = bim.ProcessBIMFile(f);
+    var images = bim.Read(f);
 
     foreach (var image in images)
     {
@@ -62,3 +62,5 @@ $ dotnet build
 ## Licencing
 
 iiEighthSolitude is licenced under the MIT License. Full licence details are available in licence.md
+
+iiEighthSolitude includes [SharpMod](https://github.com/Mdwf-droid/SharpMod), licenced under MIT

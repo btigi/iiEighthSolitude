@@ -1,286 +1,262 @@
-﻿using SixLabors.ImageSharp;
+﻿using System.IO.Compression;
+using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace ii.EighthSolitude
 {
     public class BimProcessor
     {
-        public List<(int r, int g, int b)> Palette = null!;
+        private const int VclzSignature = unchecked((int)0x5a4c4356);
+        private const int MaxDimension = 10000;
+        private const int MaxFrameCount = 5000;
 
-        public List<Image<Rgba32>> Process(string filePath)
+        public List<(int r, int g, int b)>? Palette { get; set; }
+
+        public List<Image<Rgba32>> Read(string filename)
         {
-            var images = new List<Image<Rgba32>>();
-
-            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-            using (var reader = new BinaryReader(stream))
+            var fileBytes = File.ReadAllBytes(filename);
+            if (fileBytes.Length < 4)
             {
-                var spriteCount = GetFrameCount(reader);
-                reader.BaseStream.Seek(0, SeekOrigin.Begin);
-                long fileSize = stream.Length;
+                return [];
+            }
 
-                if (spriteCount > 5000)
+            if (BitConverter.ToInt32(fileBytes, 0) == VclzSignature)
+            {
+                fileBytes = TryDecompressVclz(fileBytes);
+                if (fileBytes.Length == 0)
                 {
-                    Console.WriteLine($"Warning: High sprite count detected in {filePath}: {spriteCount} sprites. This may indicate an issue with the file structure.");
                     return [];
                 }
+            }
 
-                // Read all frame offsets
-                var offsets = new List<int>();
-                for (var i = 0; i < spriteCount; i++)
+            var frames = ParseFrameIndex(fileBytes);
+            if (frames.Count > MaxFrameCount)
+            {
+                return [];
+            }
+
+            var images = new List<Image<Rgba32>>(frames.Count);
+            foreach (var (offset, length) in frames)
+            {
+                if (length <= 0 || offset < 0 || offset >= fileBytes.Length)
                 {
-                    offsets.Add(reader.ReadInt32());
+                    continue;
                 }
 
-                // Validation
-                for (var i = 0; i < offsets.Count; i++)
+                var size = Math.Min(length, fileBytes.Length - offset);
+                var frameData = new byte[size];
+                Buffer.BlockCopy(fileBytes, offset, frameData, 0, size);
+
+                var image = DecodeFrame(frameData);
+                if (image != null)
                 {
-                    if (offsets[i] < 0 || offsets[i] >= fileSize)
-                    {
-                        Console.WriteLine($"Warning: Invalid offset {i}: {offsets[i]} (file size: {fileSize})");
-                    }
-                    if (i > 0 && offsets[i] <= offsets[i - 1])
-                    {
-                        Console.WriteLine($"Warning: Non-ascending offset {i}: {offsets[i]} <= {offsets[i - 1]}");
-                    }
-                }
-
-                // Add the file size as the last offset so we have an end boundary
-                offsets.Add((int)fileSize);
-
-                // Extract each sprite
-                for (var i = 0; i < spriteCount; i++)
-                {
-                    var currentOffset = offsets[i];
-                    var nextOffset = offsets[i + 1];
-                    var spriteSize = nextOffset - currentOffset;
-
-                    if (spriteSize > 0 && currentOffset >= 0 && currentOffset < fileSize)
-                    {
-                        stream.Seek(currentOffset, SeekOrigin.Begin);
-
-                        var actualSize = Math.Min(spriteSize, (int)(fileSize - currentOffset));
-                        var spriteData = reader.ReadBytes(actualSize);
-
-                        try
-                        {
-                            var image = ExtractImage(spriteData);
-                            if (image != null)
-                            {
-                                images.Add(image);
-                            }
-                            else
-                            {
-                                Console.WriteLine($"Failed to extract sprite {i}: returned null");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error extracting sprite {i} (offset: {currentOffset}, size: {actualSize}): {ex.Message}");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Sprite {i} has invalid size or offset: size={spriteSize}, offset={currentOffset}");
-                    }
+                    images.Add(image);
                 }
             }
 
             return images;
         }
 
-        private Image<Rgba32> ExtractImage(byte[] spriteData)
+        private static byte[] TryDecompressVclz(byte[] fileBytes)
         {
-            if (spriteData.Length < 4)
+            var payload = new byte[fileBytes.Length - 4];
+            Buffer.BlockCopy(fileBytes, 4, payload, 0, payload.Length);
+
+            return Inflate(payload, input => new ZLibStream(input, CompressionMode.Decompress))
+                ?? Inflate(payload, input => new DeflateStream(input, CompressionMode.Decompress))
+                ?? [];
+        }
+
+        private static byte[]? Inflate(byte[] payload, Func<Stream, Stream> decompressorFactory)
+        {
+            try
             {
-                Console.WriteLine($"Sprite data too small: {spriteData.Length} bytes");
-                return null!;
+                using var input = new MemoryStream(payload, writable: false);
+                using var decompressor = decompressorFactory(input);
+                using var output = new MemoryStream();
+                decompressor.CopyTo(output);
+                return output.ToArray();
             }
-
-            using var stream = new MemoryStream(spriteData);
-            using var reader = new BinaryReader(stream);
-
-            ushort width = reader.ReadUInt16(); // width is often larger than it needs to be, but the only impact is a bunch of transparent space on the right-hand side of the image
-            ushort height = reader.ReadUInt16();
-
-            if (width == 0 || height == 0)
+            catch
             {
-                Console.WriteLine($"Invalid dimensions: {width}x{height}");
-                return null!;
-            }
-
-            if (width > 10000 || height > 10000)
-            {
-                Console.WriteLine($"Dimensions too large: {width}x{height}");
-                return null!;
-            }
-
-            // Images can contain direct pixel data they can used an index RLE-transparency scheme.
-            // We determine the image type based on the amount of data matching height*width.
-            var availableData = spriteData.Length - 4; // Subtract width/height bytes
-            var isDirectPixelImageSprite = availableData >= width * height;
-
-            stream.Seek(4, SeekOrigin.Begin);
-
-            if (isDirectPixelImageSprite)
-            {
-                return ExtractDirectPixelImage(reader, width, height);
-            }
-            else
-            {
-                return ExtractTransparencyIndexImage(reader, width, height);
+                return null;
             }
         }
 
-        private Image<Rgba32> ExtractDirectPixelImage(BinaryReader reader, ushort width, ushort height)
+        private static List<(int Offset, int Length)> ParseFrameIndex(byte[] data)
         {
-            var image = new Image<Rgba32>(width, height);
-
-            try
+            var frames = new List<(int Offset, int Length)>();
+            if (data.Length < 4)
             {
-                for (var y = 0; y < height; y++)
-                {
-                    for (var x = 0; x < width; x++)
-                    {
-                        if (reader.BaseStream.Position >= reader.BaseStream.Length)
-                        {
-                            Console.WriteLine($"Warning: Reached end of stream while reading solid sprite at position ({x}, {y})");
-                            break;
-                        }
+                return frames;
+            }
 
-                        var pixelValue = reader.ReadByte();
-                        var alpha = pixelValue == 0 ? (byte)0 : (byte)255;
-                        var color = GetColorFromPalette(pixelValue);
-                        image[x, y] = new Rgba32(color.r, color.g, color.b, alpha);
+            var indexLength = BitConverter.ToInt32(data, 0);
+            if (indexLength <= 0 || indexLength > data.Length)
+            {
+                return frames;
+            }
+
+            var entryCount = indexLength / 4;
+            var offsets = new int[entryCount];
+            for (var i = 0; i < entryCount; i++)
+                offsets[i] = BitConverter.ToInt32(data, i * 4);
+
+            for (var i = 0; i < entryCount; i++)
+            {
+                var start = offsets[i];
+
+                // A frame runs until the next offset that actually advances. Repeated offsets
+                // represent empty frames, and the last frame extends to the end of the file
+                var end = data.Length;
+                for (var next = i + 1; next < entryCount; next++)
+                {
+                    if (offsets[next] != start)
+                    {
+                        end = offsets[next];
+                        break;
                     }
                 }
+
+                // The table may close with a frame-count value instead of an offset; ignore it
+                if (start != data.Length - 4)
+                {
+                    frames.Add((start, end - start));
+                }
             }
-            catch (Exception ex)
+
+            return frames;
+        }
+
+        private Image<Rgba32>? DecodeFrame(byte[] frameData)
+        {
+            if (frameData.Length < 4)
             {
-                Console.WriteLine($"Error reading solid sprite data: {ex.Message}");
-                throw;
+                return null;
+            }
+
+            // First field is the width for uncompressed frames OR the byte offset to the packed pixel data for run-length encoded frames
+            var widthOrPixelOffset = BitConverter.ToInt16(frameData, 0);
+            var height = BitConverter.ToInt16(frameData, 2);
+
+            if (height <= 0 || height > MaxDimension)
+            {
+                return null;
+            }
+
+            // An uncompressed frame is exactly header + width * height indexed bytes
+            if (frameData.Length == 4 + widthOrPixelOffset * height)
+            {
+                if (widthOrPixelOffset <= 0 || widthOrPixelOffset > MaxDimension)
+                {
+                    return null;
+                }
+
+                return DecodeUncompressedFrame(frameData, widthOrPixelOffset, height);
+            }
+
+            return DecodeRleFrame(frameData, widthOrPixelOffset, height);
+        }
+
+        private Image<Rgba32> DecodeUncompressedFrame(byte[] frameData, int width, int height)
+        {
+            var image = new Image<Rgba32>(width, height);
+            var offset = 4;
+
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width && offset < frameData.Length; x++)
+                {
+                    image[x, y] = ToPixel(frameData[offset++]);
+                }
             }
 
             return image;
         }
 
-        private Image<Rgba32> ExtractTransparencyIndexImage(BinaryReader reader, ushort width, ushort height)
+        private Image<Rgba32>? DecodeRleFrame(byte[] frameData, int pixelOffset, int height)
         {
-            var image = new Image<Rgba32>(width, height);
-
-            // Initialize the entire image to transparent
-            for (var y = 0; y < height; y++)
+            if (pixelOffset < 0 || pixelOffset > frameData.Length)
             {
-                for (var x = 0; x < width; x++)
-                {
-                    image[x, y] = new Rgba32(0, 0, 0, 0); // Transparent
-                }
+                return null;
             }
 
-            try
+            var pixels = frameData.AsSpan(pixelOffset);
+            var rows = new byte[height][];
+            var readOffset = 0;
+            var position = 4;
+
+            for (var i = 0; i < height; i++)
             {
-                // Step 1: Read the run-length encoding data (alternating transparency count and pixel count)
-                var rleData = new List<byte>();
-
-                while (reader.BaseStream.Position < reader.BaseStream.Length - 1)
+                if (position + 2 > frameData.Length)
                 {
-                    var count = reader.ReadByte();
-                    var value = reader.ReadByte();
+                    rows[i] = [];
+                    continue;
+                }
 
-                    if (value != 0)
+                var chunkCount = BitConverter.ToInt16(frameData, position);
+                position += 2;
+
+                var row = Array.Empty<byte>();
+                for (var j = 0; j < chunkCount; j++)
+                {
+                    if (position + 4 > frameData.Length)
                     {
-                        // If we read non-zero data we've hit the start of pixel data, we need to back up to read this data as pixels
-                        reader.BaseStream.Position -= 2;
                         break;
                     }
 
-                    rleData.Add(count);
-                }
+                    var xOffset = BitConverter.ToInt16(frameData, position);
+                    var count = BitConverter.ToInt16(frameData, position + 2);
+                    position += 4;
 
-                // Step 2: Read the actual pixel data
-                var pixelData = new List<byte>();
-                while (reader.BaseStream.Position < reader.BaseStream.Length)
-                {
-                    pixelData.Add(reader.ReadByte());
-                }
-
-                // Step 3: Process each row using RLE data
-                var rleIndex = 0;
-                var pixelIndex = 0;
-                for (var y = 0; y < height; y++)
-                {
-                    var x = 0;
-                    var pixelsUsedThisRow = 0;
-
-                    // Check if we have RLE data for this row
-                    if (rleIndex < rleData.Count)
+                    if (count <= 0 || xOffset < 0 || readOffset + count > pixels.Length)
                     {
-                        var regionsInRow = rleData[rleIndex];
-                        rleIndex++;
-
-                        for (var region = 0; region < regionsInRow && rleIndex < rleData.Count; region++)
-                        {
-                            // Read transparency count
-                            var transparentCount = rleData[rleIndex];
-                            rleIndex++;
-
-                            // Skip transparent pixels
-                            x += transparentCount;
-
-                            // Read pixel data count (if we have more RLE data)
-                            if (rleIndex < rleData.Count)
-                            {
-                                var pixelCount = rleData[rleIndex];
-                                rleIndex++;
-
-                                // Fill pixels
-                                for (var i = 0; i < pixelCount && x < width && pixelIndex < pixelData.Count; i++)
-                                {
-                                    var pixelValue = pixelData[pixelIndex];
-                                    var alpha = pixelValue == 0 ? (byte)0 : (byte)255;
-                                    var color = GetColorFromPalette(pixelValue);
-                                    image[x, y] = new Rgba32(color.r, color.g, color.b, alpha);
-
-                                    x++;
-                                    pixelIndex++;
-                                    pixelsUsedThisRow++;
-                                }
-                            }
-                        }
+                        continue;
                     }
+
+                    Array.Resize(ref row, Math.Max(row.Length, xOffset + count));
+                    pixels.Slice(readOffset, count).CopyTo(row.AsSpan(xOffset));
+                    readOffset += count;
                 }
+
+                rows[i] = row;
             }
-            catch (Exception ex)
+
+            var width = rows.Length == 0 ? 0 : rows.Max(r => r.Length);
+            if (width <= 0 || width > MaxDimension)
             {
-                Console.WriteLine($"Error reading RLE sprite data: {ex.Message}");
-                throw;
+                return null;
+            }
+
+            var image = new Image<Rgba32>(width, height);
+            for (var y = 0; y < height; y++)
+            {
+                var row = rows[y];
+                for (var x = 0; x < row.Length; x++)
+                {
+                    image[x, y] = ToPixel(row[x]);
+                }
             }
 
             return image;
         }
 
-        private (byte r, byte g, byte b) GetColorFromPalette(byte pixelValue)
+        private Rgba32 ToPixel(byte index)
         {
-            if (Palette != null && pixelValue < Palette.Count)
-            {
-                var paletteColor = Palette[pixelValue];
-                return ((byte)paletteColor.r, (byte)paletteColor.g, (byte)paletteColor.b);
-            }
-            
-            // Default to a greyscale palette
-            return (pixelValue, pixelValue, pixelValue);
+            var (r, g, b) = GetColorFromPalette(index);
+            var alpha = index == 0 ? (byte)0 : (byte)255;
+            return new Rgba32(r, g, b, alpha);
         }
 
-        private static int GetFrameCount(BinaryReader br)
+        private (byte r, byte g, byte b) GetColorFromPalette(byte index)
         {
-            br.BaseStream.Seek(-4, SeekOrigin.End);
-            var frameCount = br.ReadInt32();
-            if (frameCount == 0)
+            if (Palette != null && index < Palette.Count)
             {
-                br.BaseStream.Seek(0, SeekOrigin.Begin);
-                int firstOffset = br.ReadInt32();
-                frameCount = firstOffset / 4;
+                var (r, g, b) = Palette[index];
+                return ((byte)r, (byte)g, (byte)b);
             }
-            return frameCount;
+
+            return (index, index, index);
         }
     }
 }
