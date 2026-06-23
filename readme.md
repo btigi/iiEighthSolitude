@@ -8,7 +8,7 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 | AI     | ✔   |   ✔   | Plain text
 | AIO    | ✗   |   ✗   | Plain text
 | BIM    | ✔   |   ✗   | Some images seem to contain invalid data
-| BIN    | ✗   |   ✗   |  
+| BIN    | ✔   |   ✔   | Rotation offset tables (paired X/Y, 2560 entries) and exponential lookup (`exptab.bin`); turret tables use int16, weapon tables use int32 wire values
 | C24    | ✔   |   ✔   | Binary - palette (256 colours, 6-bit, 4 bytes/entry)
 | COL    | ✔   |   ✔   | 
 | DAT    | ✔   |   ✔   | Binary - palette
@@ -41,6 +41,19 @@ foreach (var f in Directory.EnumerateFiles(@"D:\Games\7thLegion\GFX", "*.BIM"))
         image.SaveAsPng($@"D:\data\7thLegion\GFX\{n}_" + images.IndexOf(image) + ".png");
     }
 }
+
+var rotation = new RotationProcessor { StorageFormat = RotationStorageFormat.Int16 };
+var turretOffsets = rotation.Read(
+    @"D:\Games\7thLegion\DATA\tox.bin",
+    @"D:\Games\7thLegion\DATA\toy.bin");
+
+var weaponRotation = new RotationProcessor { StorageFormat = RotationStorageFormat.Int32 };
+var weaponOffsets = weaponRotation.Read(
+    @"D:\Games\7thLegion\DATA\w1ox.bin",
+    @"D:\Games\7thLegion\DATA\w1oy.bin");
+
+var exponential = new ExponentionalProcessor();
+var expTable = exponential.Read(@"D:\Games\7thLegion\DATA\exptab.bin");
 ```
 
 
