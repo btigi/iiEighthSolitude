@@ -15,6 +15,7 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 | DAT    | ✗   |   ✗   | Plain text
 | GP     | ✗   |   ✗   | Plain text
 | INI    | ✗   |   ✗   | Plain text
+| MAP    | 〰   |   ✗   | Level/map layers (`MAPT`/`MAPOVL`/`MAPO`/`MAPL`/`MAPC*`)
 | SAV    | ✗   |   ✗   | Save game
 | SMP    | ✔   |   ✔   | Sound effects
 | TXT    | ✗   |   ✗   | Plain text
@@ -54,6 +55,25 @@ var weaponOffsets = weaponRotation.Read(
 
 var exponential = new ExponentionalProcessor();
 var expTable = exponential.Read(@"D:\Games\7thLegion\DATA\exptab.bin");
+
+
+var map = new MapProcessor();
+var palette = MapProcessor.LoadPalette(@"D:\Games\7thLegion\GFX\PAL2.COL");
+
+// Full colour render (terrain + overlay/object markers)
+var image = map.ReadMap(
+    @"D:\Games\7thLegion\DATA\MAPT.001",
+    [@"D:\Games\7thLegion\GFX\TILES1.BIM"],
+    palette,
+    mapOvlPath: @"D:\Games\7thLegion\DATA\MAPOVL.001",
+    mapCtPath: @"D:\Games\7thLegion\DATA\MAPCT.001",
+    mapCxPath: @"D:\Games\7thLegion\DATA\MAPCX.001",
+    mapCyPath: @"D:\Games\7thLegion\DATA\MAPCY.001");
+image.SaveAsPng(@"D:\data\7thLegion\map001.png");
+
+// Greyscale heightmap (MAPO, elevation 0-16) and lightmap (MAPL)
+map.ReadHeightMap(@"D:\Games\7thLegion\DATA\MAPO.001").SaveAsPng(@"D:\data\7thLegion\height001.png");
+map.ReadLightMap(@"D:\Games\7thLegion\DATA\MAPL.001").SaveAsPng(@"D:\data\7thLegion\light001.png");
 ```
 
 
