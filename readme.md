@@ -6,13 +6,15 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 | Name   | Read | Write | Comment
 |--------|:----:|-------|--------
 | AI     | ✔   |   ✔   | Plain text
-| AIO    | ✗   |   ✗   | Plain text
+| AIO    | ✔   |   ✔   | Plain text - as AI
 | BIM    | ✔   |   ✗   | Some images seem to contain invalid data
 | BIN    | ✔   |   ✔   | Rotation offset tables (paired X/Y, 2560 entries) and exponential lookup (`exptab.bin`); turret tables use int16, weapon tables use int32 wire values
 | C24    | ✔   |   ✔   | Binary - palette (256 colours, 6-bit, 4 bytes/entry)
 | COL    | ✔   |   ✔   | 
 | DAT    | ✔   |   ✔   | Binary - palette
-| DAT    | ✗   |   ✗   | Plain text
+| DAT    | ✗   |   ✗   | NU**.DAT
+| DAT    | ✔   |   ✔   | Plain text (`BUILD.DAT`, `DEPEND.DAT`, `VDEPEND.DAT`)
+| DAT    | ✔   |   ✔   | STUFF.DAT
 | GP     | ✗   |   ✗   | Plain text
 | INI    | ✗   |   ✗   | Plain text
 | MAP    | 〰   |   ✗   | Level/map layers (`MAPT`/`MAPOVL`/`MAPO`/`MAPL`/`MAPC*`)
@@ -55,6 +57,11 @@ var weaponOffsets = weaponRotation.Read(
 
 var exponential = new ExponentionalProcessor();
 var expTable = exponential.Read(@"D:\Games\7thLegion\DATA\exptab.bin");
+
+var depend = new DependProcessor();
+var buildingTree = depend.Read(@"D:\Games\7thLegion\DATA\depend.dat");
+var unitUnlocks = depend.ReadMerged(@"D:\Games\7thLegion\DATA\vdepend.dat");
+depend.Write(buildingTree, @"D:\data\7thLegion\depend.dat");
 
 
 var map = new MapProcessor();
