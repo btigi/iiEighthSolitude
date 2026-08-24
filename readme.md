@@ -16,8 +16,8 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 | DAT    | ✔   |   ✔   | Plain text (`BUILD.DAT`, `DEPEND.DAT`, `VDEPEND.DAT`)
 | DAT    | ✔   |   ✔   | STUFF.DAT
 | GP     | ✗   |   ✗   | Plain text
-| INI    | ✗   |   ✗   | Plain text
-| MAP    | 〰   |   ✗   | Level/map layers (`MAPT`/`MAPOVL`/`MAPO`/`MAPL`/`MAPC*`)
+| INI    | ✔   |   ✔   | Plain text
+| MAP    | ✔   |   ✔   | Level/map layers (`MAPT`/`MAPOVL`/`MAPO`/`MAPL`/`MAPC*`)
 | SAV    | ✗   |   ✗   | Save game
 | SMP    | ✔   |   ✔   | Sound effects
 | TXT    | ✗   |   ✗   | Plain text
@@ -67,6 +67,11 @@ depend.Write(buildingTree, @"D:\data\7thLegion\depend.dat");
 var map = new MapProcessor();
 var palette = MapProcessor.LoadPalette(@"D:\Games\7thLegion\GFX\PAL2.COL");
 
+// Structured read/write of all seven MAP* layers
+var mapData = map.ReadMapData(@"D:\Games\7thLegion\DATA", 1);
+mapData.Terrain[MapData.Index(10, 20)] = 100;
+map.WriteMapData(mapData, @"D:\data\7thLegion\DATA", 1);
+
 // Full colour render (terrain + overlay/object markers)
 var image = map.ReadMap(
     @"D:\Games\7thLegion\DATA\MAPT.001",
@@ -81,6 +86,14 @@ image.SaveAsPng(@"D:\data\7thLegion\map001.png");
 // Greyscale heightmap (MAPO, elevation 0-16) and lightmap (MAPL)
 map.ReadHeightMap(@"D:\Games\7thLegion\DATA\MAPO.001").SaveAsPng(@"D:\data\7thLegion\height001.png");
 map.ReadLightMap(@"D:\Games\7thLegion\DATA\MAPL.001").SaveAsPng(@"D:\data\7thLegion\light001.png");
+
+var missions = new MissionsIniProcessor();
+var doc = missions.Read(@"D:\Games\7thLegion\DATA\Missions.ini");
+foreach (var mission in doc.Missions)
+{
+    Console.WriteLine($"{mission.SectionName}: map={mission.Map} howToWin={mission.HowToWinMode}");
+}
+missions.Write(doc, @"D:\data\7thLegion\Missions.ini");
 ```
 
 
