@@ -1,17 +1,26 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<Copyright>Copyright ©  2026</Copyright>
+		<Title>ii.EighthSolitude</Title>
+		<Version>0.8.0.0</Version>
+		<Authors>iggti</Authors>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/btigi/iiEighthSolitude</RepositoryUrl>
+		<Description>C# library to facilitate editing of the 1997 RTS 7th Legion.</Description>
+		<PackageTags>7th legion;Vision Software</PackageTags>
+		<PackageReadmeFile>readme.md</PackageReadmeFile>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />    
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\external\SharpMod\src\SharpMod.Core\SharpMod.Core.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\external\SharpMod\src\SharpMod.Core\SharpMod.Core.csproj" />
+	</ItemGroup>
 
 </Project>
