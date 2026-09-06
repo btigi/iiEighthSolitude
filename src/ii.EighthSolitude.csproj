@@ -6,7 +6,7 @@
 		<Nullable>enable</Nullable>
 		<Copyright>Copyright ©  2026</Copyright>
 		<Title>ii.EighthSolitude</Title>
-		<Version>0.8.1.0</Version>
+		<Version>0.8.2.0</Version>
 		<Authors>iggti</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/btigi/iiEighthSolitude</RepositoryUrl>

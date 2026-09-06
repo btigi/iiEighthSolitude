@@ -58,6 +58,219 @@ namespace ii.EighthSolitude
             return images;
         }
 
+        public void Write(string filename, IReadOnlyList<Image<Rgba32>> images)
+        {
+            ArgumentNullException.ThrowIfNull(filename);
+            ArgumentNullException.ThrowIfNull(images);
+            if (images.Count == 0)
+            {
+                throw new ArgumentException("At least one frame is required.", nameof(images));
+            }
+
+            if (images.Count > MaxFrameCount)
+            {
+                throw new ArgumentException($"BIM files support at most {MaxFrameCount} frames; got {images.Count}.", nameof(images));
+            }
+
+            if (Palette == null || Palette.Count == 0)
+            {
+                throw new InvalidOperationException("Palette must be set before writing BIM files.");
+            }
+
+            var frames = new List<byte[]>(images.Count);
+            foreach (var image in images)
+            {
+                ArgumentNullException.ThrowIfNull(image);
+                if (image.Width <= 0 || image.Height <= 0 || image.Width > MaxDimension || image.Height > MaxDimension)
+                {
+                    throw new ArgumentException($"Frame dimensions must be between 1 and {MaxDimension}; got {image.Width}x{image.Height}.", nameof(images));
+                }
+
+                frames.Add(EncodeFrame(image));
+            }
+
+            var indexLength = images.Count * 4;
+            var totalSize = indexLength + frames.Sum(f => f.Length);
+            var data = new byte[totalSize];
+
+            var offset = indexLength;
+            for (var i = 0; i < frames.Count; i++)
+            {
+                BitConverter.TryWriteBytes(data.AsSpan(i * 4, 4), offset);
+                Buffer.BlockCopy(frames[i], 0, data, offset, frames[i].Length);
+                offset += frames[i].Length;
+            }
+
+            File.WriteAllBytes(filename, data);
+        }
+
+        private byte[] EncodeFrame(Image<Rgba32> image)
+        {
+            var indices = Quantize(image);
+            var uncompressed = EncodeUncompressedFrame(indices, image.Width, image.Height);
+            var rle = EncodeRleFrame(indices, image.Width, image.Height);
+
+            // Span-packed frames omit trailing transparent columns, so only use them when
+            // the rightmost column has content (preserving width) and they shrink the payload
+            if (rle != null &&
+                rle.Length < uncompressed.Length &&
+                HasOpaquePixelInColumn(indices, image.Width, image.Height, image.Width - 1))
+            {
+                return rle;
+            }
+
+            return uncompressed;
+        }
+
+        private static bool HasOpaquePixelInColumn(byte[] indices, int width, int height, int column)
+        {
+            for (var y = 0; y < height; y++)
+            {
+                if (indices[y * width + column] != 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private byte[] Quantize(Image<Rgba32> image)
+        {
+            var indices = new byte[image.Width * image.Height];
+            var i = 0;
+            for (var y = 0; y < image.Height; y++)
+            {
+                for (var x = 0; x < image.Width; x++)
+                {
+                    var pixel = image[x, y];
+                    indices[i++] = pixel.A < 128 ? (byte)0 : FindNearestIndex(pixel.R, pixel.G, pixel.B);
+                }
+            }
+
+            return indices;
+        }
+
+        private byte FindNearestIndex(byte r, byte g, byte b)
+        {
+            var count = Palette!.Count;
+            // Index 0 = transparency
+            if (count <= 1)
+            {
+                return 0;
+            }
+
+            var bestIndex = 1;
+            var bestDistance = int.MaxValue;
+
+            for (var i = 1; i < count; i++)
+            {
+                var (pr, pg, pb) = Palette[i];
+                var dr = pr - r;
+                var dg = pg - g;
+                var db = pb - b;
+                var distance = dr * dr + dg * dg + db * db;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestIndex = i;
+                    if (distance == 0)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            return (byte)bestIndex;
+        }
+
+        private static byte[] EncodeUncompressedFrame(byte[] indices, int width, int height)
+        {
+            var data = new byte[4 + indices.Length];
+            BitConverter.TryWriteBytes(data.AsSpan(0, 2), (short)width);
+            BitConverter.TryWriteBytes(data.AsSpan(2, 2), (short)height);
+            Buffer.BlockCopy(indices, 0, data, 4, indices.Length);
+            return data;
+        }
+
+        private static byte[]? EncodeRleFrame(byte[] indices, int width, int height)
+        {
+            var rowChunks = new List<(short X, short Count)>[height];
+            var pixelBytes = new List<byte>(indices.Length);
+
+            for (var y = 0; y < height; y++)
+            {
+                var chunks = new List<(short X, short Count)>();
+                var rowOffset = y * width;
+                var x = 0;
+                while (x < width)
+                {
+                    while (x < width && indices[rowOffset + x] == 0)
+                    {
+                        x++;
+                    }
+
+                    if (x >= width)
+                    {
+                        break;
+                    }
+
+                    var start = x;
+                    while (x < width && indices[rowOffset + x] != 0)
+                    {
+                        pixelBytes.Add(indices[rowOffset + x]);
+                        x++;
+                    }
+
+                    var count = x - start;
+                    if (count > short.MaxValue || start > short.MaxValue)
+                    {
+                        return null;
+                    }
+
+                    chunks.Add(((short)start, (short)count));
+                }
+
+                if (chunks.Count > short.MaxValue)
+                {
+                    return null;
+                }
+
+                rowChunks[y] = chunks;
+            }
+
+            var headerSize = 4;
+            foreach (var chunks in rowChunks)
+            {
+                headerSize += 2 + chunks.Count * 4;
+            }
+
+            if (headerSize > short.MaxValue)
+            {
+                return null;
+            }
+
+            var data = new byte[headerSize + pixelBytes.Count];
+            BitConverter.TryWriteBytes(data.AsSpan(0, 2), (short)headerSize);
+            BitConverter.TryWriteBytes(data.AsSpan(2, 2), (short)height);
+
+            var position = 4;
+            foreach (var chunks in rowChunks)
+            {
+                BitConverter.TryWriteBytes(data.AsSpan(position, 2), (short)chunks.Count);
+                position += 2;
+                foreach (var (x, count) in chunks)
+                {
+                    BitConverter.TryWriteBytes(data.AsSpan(position, 2), x);
+                    BitConverter.TryWriteBytes(data.AsSpan(position + 2, 2), count);
+                    position += 4;
+                }
+            }
+
+            pixelBytes.CopyTo(data.AsSpan(headerSize));
+            return data;
+        }
+
         // VCLZ is a 4-byte magic, a 32-bit uncompressed length, then an LZSS bitstream
         // (12-bit window, flag-byte literals / 2-byte backreferences)
         private static byte[] TryDecompressVclz(byte[] fileBytes)

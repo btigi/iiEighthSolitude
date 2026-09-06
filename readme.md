@@ -7,8 +7,8 @@ iiEighthSolitude is a C# library supporting the modification of files relating t
 |--------|:----:|-------|--------
 | AI     | ✔   |   ✔   | Plain text
 | AIO    | ✔   |   ✔   | Plain text - as AI
-| BIM    | ✔   |   ✗   | Some images seem to contain invalid data
-| BIN    | ✔   |   ✔   | Rotation offset tables (paired X/Y, 2560 entries) and exponential lookup (`exptab.bin`); turret tables use int16, weapon tables use int32 wire values
+| BIM    | ✔   |   ✔   | Graphics
+| BIN    | ✔   |   ✔   | Rotation offset tables (paired X/Y, 2560 entries) and exponential lookup (`exptab.bin`); turret tables use int16, weapon tables use int32
 | C24    | ✔   |   ✔   | Binary - palette (256 colours, 6-bit, 4 bytes/entry)
 | COL    | ✔   |   ✔   | 
 | DAT    | ✔   |   ✔   | Binary - palette
